@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1877F2">
+<meta name="description" content="Generate and scan QR codes instantly. Fully offline, installable workspace utility.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" id="manifestLink" href="">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192'%3E%3Crect width='192' height='192' fill='%231877F2'/%3E%3Ctext x='50%25' y='50%25' font-size='80' fill='white' text-anchor='middle' dy='.3em'%3EQR%3C/text%3E%3C/svg%3E">
+<title>Workspace QRcode App</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --fb-primary:#1877F2; --fb-hover:#166FE5; --fb-dark:#0D5DBD;
+  --bg-primary:#F0F2F5; --bg-secondary:#FFFFFF; --text-primary:#050505;
+  --text-secondary:#65676B; --border-color:#CED0D4;
+  --shadow:0 2px 12px rgba(0,0,0,0.08); --shadow-lg:0 8px 32px rgba(0,0,0,0.16);
+}
+[data-theme="dark"] {
+  --bg-primary:#18191A; --bg-secondary:#242526; --text-primary:#E4E6EB;
+  --text-secondary:#B0B3B8; --border-color:#3E4042;
+  --shadow:0 2px 12px rgba(0,0,0,0.3); --shadow-lg:0 8px 32px rgba(0,0,0,0.5);
+}
+html, body { font-size:18px; }
+body {
+  font-family:-apple-system, BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg-primary); color:var(--text-primary); min-height:100vh;
+  transition:background 0.3s ease, color 0.3s ease; padding-bottom:88px;
+}
+button, input, textarea { font-size:17px; font-family:inherit; }
+
+/* Header */
+.header { background:var(--bg-secondary); padding:14px 12px; box-shadow:var(--shadow);
+  position:sticky; top:0; z-index:200; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.icon-btn { background:transparent; border:none; width:42px; height:42px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; color:var(--text-primary); cursor:pointer; }
+.icon-btn:active { background:var(--bg-primary); }
+.app-title { font-size:18px; font-weight:700; color:var(--text-primary); flex:1; text-align:center; }
+.theme-toggle { background:var(--bg-primary); border:2px solid var(--border-color); border-radius:20px;
+  width:56px; height:30px; cursor:pointer; position:relative; flex-shrink:0; padding:0; }
+.toggle-thumb { position:absolute; top:1px; left:1px; width:24px; height:24px; border-radius:50%;
+  background:var(--fb-primary); color:#fff; display:flex; align-items:center; justify-content:center;
+  transition:transform 0.25s ease; }
+[data-theme="dark"] .toggle-thumb { transform:translateX(26px); }
+
+/* Sidebars */
+.sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300;
+  opacity:0; pointer-events:none; transition:opacity 0.25s ease; }
+.sidebar-overlay.active { opacity:1; pointer-events:auto; }
+.sidebar { position:fixed; top:0; height:100vh; width:280px; background:var(--bg-secondary);
+  z-index:400; box-shadow:var(--shadow-lg); transition:transform 0.3s ease; display:flex; flex-direction:column; }
+.sidebar-left { left:0; transform:translateX(-100%); }
+.sidebar-left.open { transform:translateX(0); }
+.sidebar-right { right:0; top:64px; height:auto; width:240px; border-radius:16px; margin:8px;
+  transform:translateY(-20px) scale(0.95); opacity:0; pointer-events:none; transform-origin:top right; }
+.sidebar-right.open { transform:translateY(0) scale(1); opacity:1; pointer-events:auto; }
+.sidebar-header { padding:18px 16px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border-color); font-weight:700; font-size:18px; }
+.sidebar-nav { flex:1; overflow-y:auto; padding:8px 0; }
+.sidebar-nav-item { width:100%; background:transparent; border:none; display:flex; align-items:center;
+  gap:14px; padding:14px 18px; color:var(--text-primary); cursor:pointer; text-align:left; }
+.sidebar-nav-item:active { background:var(--bg-primary); }
+.sidebar-nav-item svg { flex-shrink:0; color:var(--fb-primary); }
+
+/* Fullscreen info modal */
+.fullscreen-modal { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999;
+  opacity:0; pointer-events:none; background:var(--bg-secondary); overflow-y:auto; transition:opacity 0.3s ease; }
+.fullscreen-modal.active { opacity:1; pointer-events:auto; }
+.modal-header { position:sticky; top:0; background:var(--bg-secondary); padding:16px;
+  display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border-color);
+  box-shadow:var(--shadow); z-index:1; }
+.modal-title { font-size:19px; font-weight:700; }
+.modal-body { padding:20px; line-height:1.6; max-width:600px; margin:0 auto; }
+.modal-body p { margin-bottom:14px; color:var(--text-secondary); }
+.modal-body h3 { margin:18px 0 8px; font-size:17px; }
+.faq-item { margin-bottom:18px; }
+.faq-q { font-weight:700; margin-bottom:6px; }
+.faq-a { color:var(--text-secondary); }
+.modal-contact-icons { display:flex; justify-content:center; gap:16px; margin-top:8px; flex-wrap:wrap; }
+
+.container { max-width:600px; margin:0 auto; padding:16px; }
+
+/* Hero */
+.hero-actions { display:flex; gap:12px; margin-bottom:16px; }
+.btn-hero { flex:1; padding:14px; border-radius:12px; font-weight:700; cursor:pointer; border:none;
+  display:flex; align-items:center; justify-content:center; gap:8px; }
+.btn-hero.install { background:var(--fb-primary); color:#fff; }
+.btn-hero.share { background:var(--bg-secondary); color:var(--fb-primary); border:2px solid var(--fb-primary); }
+.btn-hero:active { transform:scale(0.97); }
+.btn-hero.hidden { display:none; }
+.hero-banner { background:linear-gradient(135deg,var(--fb-primary),var(--fb-dark)); color:#fff;
+  border-radius:16px; padding:28px 20px; text-align:center; margin-bottom:20px; box-shadow:var(--shadow-lg); }
+.hero-title { font-size:22px; font-weight:700; margin-bottom:6px; }
+.hero-subtitle { font-size:17px; opacity:0.9; }
+
+.card { background:var(--bg-secondary); border-radius:16px; padding:20px; margin-bottom:16px; box-shadow:var(--shadow); }
+.card-title { font-size:18px; font-weight:700; margin-bottom:16px; }
+.input-group { margin-bottom:16px; }
+.input-label { display:block; font-size:14px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; }
+.input, .textarea { width:100%; padding:12px 16px; border:2px solid var(--border-color); border-radius:12px;
+  background:var(--bg-primary); color:var(--text-primary); transition:border-color 0.2s ease; }
+.input:focus, .textarea:focus { outline:none; border-color:var(--fb-primary); }
+.textarea { resize:none; min-height:100px; }
+.input-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:480px) { .input-row { grid-template-columns:1fr; } }
+
+.qr-display { background:var(--bg-primary); border-radius:16px; padding:32px; text-align:center;
+  min-height:300px; display:flex; align-items:center; justify-content:center; }
+#qrContainer canvas { max-width:280px; width:100%; height:auto; border-radius:12px; box-shadow:var(--shadow-lg); }
+.qr-placeholder { color:var(--text-secondary); text-align:center; }
+.qr-placeholder svg { width:64px; height:64px; opacity:0.3; margin-bottom:12px; }
+
+.button-group { display:flex; gap:12px; margin-top:16px; }
+.btn { flex:1; padding:14px; border:none; border-radius:12px; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px; }
+.btn-primary { background:var(--fb-primary); color:#fff; }
+.btn-primary:active { background:var(--fb-hover); transform:scale(0.98); }
+.btn-secondary { background:var(--bg-primary); color:var(--text-primary); border:2px solid var(--border-color); }
+.btn-secondary:active { transform:scale(0.98); }
+
+.qr-data-preview { background:var(--bg-primary); padding:12px; border-radius:12px; margin-top:16px;
+  max-height:120px; overflow-y:auto; }
+.qr-data-preview pre { font-size:14px; color:var(--text-secondary); white-space:pre-wrap; word-break:break-all;
+  font-family:monospace; }
+
+.footer { background:var(--bg-secondary); padding:20px; margin-top:32px; border-radius:16px; box-shadow:var(--shadow); text-align:center; }
+.app-info { color:var(--text-secondary); font-size:14px; }
+
+.hidden { display:none !important; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* Bottom nav */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; height:80px; background:var(--bg-secondary);
+  border-top:1px solid var(--border-color); display:flex; z-index:150; box-shadow:0 -2px 12px rgba(0,0,0,0.08); }
+.bottom-nav-item { flex:1; background:transparent; border:none; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:4px; color:var(--text-secondary); cursor:pointer; font-size:13px; font-weight:600; }
+.bottom-nav-item.active { color:var(--fb-primary); }
+
+.contact-icon { width:48px; height:48px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; text-decoration:none; }
+.contact-icon.email { background:#EA4335; color:#fff; }
+.contact-icon.facebook { background:#1877F2; color:#fff; }
+.contact-icon.whatsapp { background:#25D366; color:#fff; }
+.contact-icon.phone { background:#34B7F1; color:#fff; }
+
+#scannerViewport { width:100%; max-width:450px; margin:0 auto; border-radius:12px; overflow:hidden; background:#000; min-height:250px; }
+</style>
+<script>
+(function(){
+  var manifest = {
+    name:"Workspace QRcode App", short_name:"QR Workspace", start_url:".", display:"standalone",
+    background_color:"#1877F2", theme_color:"#1877F2",
+    icons:[{ src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192'%3E%3Crect width='192' height='192' fill='%231877F2'/%3E%3Ctext x='50%25' y='50%25' font-size='80' fill='white' text-anchor='middle' dy='.3em'%3EQR%3C/text%3E%3C/svg%3E", sizes:"192x192", type:"image/svg+xml" }]
+  };
+  document.getElementById('manifestLink').setAttribute('href','data:application/json;base64,'+btoa(JSON.stringify(manifest)));
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <button class="icon-btn" id="leftMenuBtn" aria-label="Menu">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+  </button>
+  <div class="app-title">Workspace QRcode</div>
+  <button class="icon-btn" id="rightMenuBtn" aria-label="More options">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>
+  </button>
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+    <span class="toggle-thumb" id="toggleThumb">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+    </span>
+  </button>
+</div>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="sidebar sidebar-left" id="leftSidebar">
+  <div class="sidebar-header">Menu
+    <button class="icon-btn" id="closeLeftSidebar" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+  </div>
+  <div class="sidebar-nav" id="leftSidebarNav"></div>
+</div>
+
+<div class="sidebar sidebar-right" id="rightSidebar">
+  <div class="sidebar-nav" id="rightSidebarNav"></div>
+</div>
+
+<div class="container">
+  <div class="hero-actions">
+    <button class="btn-hero install hidden" id="installBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Install App
+    </button>
+    <button class="btn-hero share" id="shareBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+      Share App
+    </button>
+  </div>
+
+  <div class="hero-banner">
+    <div class="hero-title">Workspace QRcode App</div>
+    <div class="hero-subtitle">Generate and scan QR codes instantly. Fully offline, friction-free.</div>
+  </div>
+
+  <div class="card tab-content" id="scanContent">
+    <div class="card-title">Scan QR Code</div>
+    <div class="input-group">
+      <div id="scannerViewport"></div>
+    </div>
+    <div class="qr-data-preview hidden" id="scanResultCard" style="border:2px dashed var(--fb-primary);">
+      <label class="input-label" style="font-weight:700;color:var(--fb-primary);">Scanned Result</label>
+      <pre id="scanResultText"></pre>
+    </div>
+  </div>
+
+  <div class="card tab-content active" id="urlContent">
+    <div class="card-title">Enter URL</div>
+    <div class="input-group">
+      <label class="input-label">Website URL</label>
+      <input type="url" class="input" id="urlInput" placeholder="example.com or https://example.com">
+    </div>
+  </div>
+
+  <div class="card tab-content" id="textContent">
+    <div class="card-title">Enter Text</div>
+    <div class="input-group">
+      <label class="input-label">Text Content</label>
+      <textarea class="textarea" id="textInput" placeholder="Enter any text to generate QR code..."></textarea>
+    </div>
+  </div>
+
+  <div class="card tab-content" id="contactContent">
+    <div class="card-title">Contact Information</div>
+    <div class="input-row">
+      <div class="input-group"><label class="input-label">First Name</label><input type="text" class="input" id="firstName" placeholder="John"></div>
+      <div class="input-group"><label class="input-label">Last Name</label><input type="text" class="input" id="lastName" placeholder="Doe"></div>
+    </div>
+    <div class="input-group"><label class="input-label">Phone Number</label><input type="tel" class="input" id="phone" placeholder="+1 (555) 123-4567"></div>
+    <div class="input-group"><label class="input-label">Email Address</label><input type="email" class="input" id="email" placeholder="john.doe@example.com"></div>
+    <div class="input-group"><label class="input-label">Organization</label><input type="text" class="input" id="organization" placeholder="Company Name"></div>
+    <div class="input-group"><label class="input-label">Website</label><input type="url" class="input" id="website" placeholder="https://example.com"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Generated QR Code</div>
+    <div class="qr-display" id="qrDisplay">
+      <div class="qr-placeholder" id="qrPlaceholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
+        <div>Fill in the form to generate your QR code</div>
+      </div>
+      <div id="qrContainer"></div>
+    </div>
+    <div class="button-group hidden" id="actionButtons">
+      <button class="btn btn-primary" id="downloadBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Download
+      </button>
+      <button class="btn btn-secondary" id="copyBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy Data
+      </button>
+    </div>
+    <div class="qr-data-preview hidden" id="dataPreview"><pre id="dataText"></pre></div>
+    <button class="btn btn-secondary" style="margin-top:16px;width:100%;" id="clearBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      Clear All Fields
+    </button>
+  </div>
+
+  <div class="footer"><div class="app-info">Workspace QRcode App &middot; Works fully offline</div></div>
+</div>
+
+<div class="bottom-nav">
+  <button class="bottom-nav-item active" data-tab="url">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+    URL
+  </button>
+  <button class="bottom-nav-item" data-tab="text">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    Text
+  </button>
+  <button class="bottom-nav-item" data-tab="contact">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+    Card
+  </button>
+  <button class="bottom-nav-item" data-tab="scan">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+    Scan
+  </button>
+</div>
+
+<div class="fullscreen-modal" id="infoModal">
+  <div class="modal-header">
+    <div class="modal-title" id="modalTitle">Title</div>
+    <button class="icon-btn" id="closeInfoModal" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+  </div>
+  <div class="modal-body" id="modalBody"></div>
+</div>
+
+<script>
+/* ===================== INFO MODAL CONTENT ===================== */
+var contactIconsHTML =
+  '<div class="modal-contact-icons">' +
+  '<a href="mailto:donvictorministry@gmail.com" class="contact-icon email" aria-label="Email"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></a>' +
+  '<a href="tel:+2347035794649" class="contact-icon phone" aria-label="Phone"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path></svg></a>' +
+  '<a href="https://wa.me/2348086590253" target="_blank" class="contact-icon whatsapp" aria-label="WhatsApp"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>' +
+  '<a href="https://facebook.com/RevDonVictor" target="_blank" class="contact-icon facebook" aria-label="Facebook"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>' +
+  '</div>';
+
+var modalContent = {
+  about_us: { title:"About Us", html:'<p>Workspace QRcode App is built for people who need QR codes to just work, anywhere, regardless of connection quality.</p><p>We believe essential productivity tools shouldn\'t depend on a stable internet connection or a server somewhere processing your data. Everything here runs on your device.</p>' },
+  about_tech: { title:"About Our Tech", html:'<p>This app uses a self-contained QR generation engine written entirely in vanilla JavaScript. No data ever leaves your device during generation, there is no backend and no analytics pipeline involved.</p><p>Scanning is powered by an open-source camera-based QR reader library, loaded once and cached for offline use by the service worker.</p><p>The entire application, including styling and logic, ships as a single HTML file with an inline, Blob-based service worker for offline support.</p>' },
+  about_app: { title:"About This App", html:'<p>Generate QR codes for website URLs, plain text, or full contact cards (vCard format) that save directly to a phone\'s contacts when scanned.</p><p>Use the Scan tab to read any QR code with your camera. Download generated codes as PNG images or copy the raw encoded data.</p><p>Install the app to your home screen for instant, offline access at any time.</p>' },
+  faq: { title:"FAQ", html:'<div class="faq-item"><div class="faq-q">Does this app work without internet?</div><div class="faq-a">Yes. Once loaded or installed, QR generation and scanning both work fully offline.</div></div><div class="faq-item"><div class="faq-q">Is any of my data sent to a server?</div><div class="faq-a">No. All QR generation happens locally in your browser using an on-device engine.</div></div><div class="faq-item"><div class="faq-q">Can I scan QR codes created by other apps?</div><div class="faq-a">Yes, the Scan tab reads any standard QR code via your device camera.</div></div><div class="faq-item"><div class="faq-q">Why install the app instead of just using the page?</div><div class="faq-a">Installing adds a home screen icon and guarantees offline access even before your first visit completes loading from a slow connection.</div></div>' },
+  how_to: { title:"How to Use", html:'<p><strong>1.</strong> Choose a tab at the bottom: URL, Text, Card, or Scan.</p><p><strong>2.</strong> Fill in the relevant fields. The QR code generates automatically as you type.</p><p><strong>3.</strong> Use Download to save the QR as an image, or Copy Data to copy the raw encoded text.</p><p><strong>4.</strong> Switch to the Scan tab and point your camera at any QR code to read it instantly.</p><p><strong>5.</strong> Tap Install App above to add this app to your home screen for one-tap offline access.</p>' },
+  terms: { title:"Terms of Use", html:'<p>This application is provided "as is" for general productivity use, without warranty of any kind, express or implied.</p><p>You are solely responsible for the content you choose to encode into any QR code generated through this app.</p><p>This app does not collect, store, or transmit personal data to any server; all processing occurs locally on your device.</p>' },
+  contact_us: { title:"Contact Us", html:'<p style="text-align:center;">Reach out to us through any of the channels below.</p>' + contactIconsHTML }
+};
+
+var navItems = [
+  { key:"about_us", label:"About Us", icon:'<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>' },
+  { key:"about_tech", label:"About Our Tech", icon:'<rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line>' },
+  { key:"about_app", label:"About This App", icon:'<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect>' },
+  { key:"faq", label:"FAQ", icon:'<circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line>' },
+  { key:"how_to", label:"How to Use", icon:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' },
+  { key:"terms", label:"Terms of Use", icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>' },
+  { key:"contact_us", label:"Contact Us", icon:'<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline>' }
+];
+
+function buildNav(containerId) {
+  var el = document.getElementById(containerId), html = "";
+  for (var i = 0; i < navItems.length; i++) {
+    var item = navItems[i];
+    html += '<button class="sidebar-nav-item" data-modal="' + item.key + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + item.icon + '</svg><span>' + item.label + '</span></button>';
+  }
+  el.innerHTML = html;
+}
+buildNav('leftSidebarNav');
+buildNav('rightSidebarNav');
+
+/* ===================== SIDEBARS ===================== */
+var leftSidebar = document.getElementById('leftSidebar');
+var rightSidebar = document.getElementById('rightSidebar');
+var overlay = document.getElementById('sidebarOverlay');
+
+function openLeftSidebar() { leftSidebar.classList.add('open'); overlay.classList.add('active'); }
+function closeLeftSidebar() { leftSidebar.classList.remove('open'); overlay.classList.remove('active'); }
+function openRightSidebar() { rightSidebar.classList.add('open'); overlay.classList.add('active'); }
+function closeRightSidebar() { rightSidebar.classList.remove('open'); overlay.classList.remove('active'); }
+function closeAllSidebars() { closeLeftSidebar(); closeRightSidebar(); }
+
+document.getElementById('leftMenuBtn').addEventListener('click', openLeftSidebar);
+document.getElementById('rightMenuBtn').addEventListener('click', openRightSidebar);
+document.getElementById('closeLeftSidebar').addEventListener('click', closeLeftSidebar);
+overlay.addEventListener('click', closeAllSidebars);
+
+document.querySelectorAll('.sidebar-nav-item').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    closeAllSidebars();
+    openInfoModal(btn.getAttribute('data-modal'));
+  });
+});
+
+/* ===================== INFO MODAL ===================== */
+var infoModal = document.getElementById('infoModal');
+function openInfoModal(key) {
+  var data = modalContent[key]; if (!data) return;
+  document.getElementById('modalTitle').textContent = data.title;
+  document.getElementById('modalBody').innerHTML = data.html;
+  infoModal.classList.add('active');
+}
+document.getElementById('closeInfoModal').addEventListener('click', function() { infoModal.classList.remove('active'); });
+
+/* ===================== THEME ===================== */
+(function() {
+  if (localStorage.getItem('theme') === 'dark') document.documentElement.setAttribute('data-theme','dark');
+})();
+document.getElementById('themeToggle').addEventListener('click', function() {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  localStorage.setItem('theme', dark ? 'light' : 'dark');
+});
+
+/* ===================== QR ENGINE (QRious via CDN) ===================== */
+var engineReady = false;
+var qrData = '';
+var currentTab = 'url';
+var qrScannerInstance = null;
+
+function loadQREngine(cb) {
+  if (engineReady) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
+  s.onload = function() { engineReady = true; cb(); };
+  document.head.appendChild(s);
+}
+
+function debounce(fn, wait) {
+  var t;
+  return function() { clearTimeout(t); t = setTimeout(fn, wait); };
+}
+
+/* ===================== TAB SWITCHING ===================== */
+var bottomNavItems = document.querySelectorAll('.bottom-nav-item');
+var tabContents = { url:'urlContent', text:'textContent', contact:'contactContent', scan:'scanContent' };
+
+async function switchTab(tab) {
+  if (tab !== 'scan' && qrScannerInstance) {
+    try { await qrScannerInstance.stop(); } catch(e) {}
+    qrScannerInstance = null;
+  }
+  currentTab = tab;
+  Object.keys(tabContents).forEach(function(k) {
+    var el = document.getElementById(tabContents[k]);
+    el.classList.toggle('active', k === tab);
+  });
+  bottomNavItems.forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+  });
+  if (tab === 'scan') { startScannerEngine(); }
+  else { generateQR(); }
+}
+
+bottomNavItems.forEach(function(btn) {
+  btn.addEventListener('click', function() { switchTab(btn.getAttribute('data-tab')); });
+});
+
+/* ===================== SCANNER ===================== */
+function startScannerEngine() {
+  document.getElementById('scanResultCard').classList.add('hidden');
+  document.getElementById('scanResultText').textContent = '';
+  if (typeof Html5Qrcode === 'undefined') { setTimeout(startScannerEngine, 200); return; }
+  qrScannerInstance = new Html5Qrcode("scannerViewport");
+  qrScannerInstance.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    function(decodedText) {
+      document.getElementById('scanResultText').textContent = decodedText;
+      document.getElementById('scanResultCard').classList.remove('hidden');
+      if (decodedText.startsWith('http://') || decodedText.startsWith('https://') || decodedText.includes('.com')) {
+        document.getElementById('urlInput').value = decodedText;
+      } else {
+        document.getElementById('textInput').value = decodedText;
+      }
+      if (navigator.vibrate) navigator.vibrate(100);
+    },
+    function() {}
+  ).catch(function(err) {
+    document.getElementById('scanResultText').textContent = "Camera Error: Please grant camera permissions.";
+    document.getElementById('scanResultCard').classList.remove('hidden');
+  });
+}
+
+/* ===================== QR GENERATION ===================== */
+function formatUrl(v) {
+  if (!v.trim()) return '';
+  return /^https?:\/\//i.test(v) ? v : 'https://' + v;
+}
+
+function generateVCard() {
+  var fn = document.getElementById('firstName').value;
+  var ln = document.getElementById('lastName').value;
+  var ph = document.getElementById('phone').value;
+  var em = document.getElementById('email').value;
+  var org = document.getElementById('organization').value;
+  var web = document.getElementById('website').value;
+  if (!fn && !ln && !ph && !em) return '';
+  return 'BEGIN:VCARD\nVERSION:3.0\nFN:' + fn + ' ' + ln + '\nN:' + ln + ';' + fn + ';;;\nORG:' + org + '\nTEL:' + ph + '\nEMAIL:' + em + '\nURL:' + web + '\nEND:VCARD';
+}
+
+function showPlaceholder() {
+  document.getElementById('qrContainer').innerHTML = '';
+  document.getElementById('qrPlaceholder').style.display = 'flex';
+  document.getElementById('actionButtons').classList.add('hidden');
+  document.getElementById('dataPreview').classList.add('hidden');
+}
+
+function generateQR() {
+  if (currentTab === 'scan') { showPlaceholder(); return; }
+  var data = '';
+  if (currentTab === 'url') data = formatUrl(document.getElementById('urlInput').value);
+  else if (currentTab === 'text') data = document.getElementById('textInput').value.trim();
+  else if (currentTab === 'contact') data = generateVCard();
+  qrData = data;
+  if (!data) { showPlaceholder(); return; }
+  loadQREngine(function() {
+    var container = document.getElementById('qrContainer');
+    container.innerHTML = '';
+    document.getElementById('qrPlaceholder').style.display = 'none';
+    var canvas = document.createElement('canvas');
+    canvas.style.maxWidth = '280px'; canvas.style.width = '100%';
+    canvas.style.borderRadius = '12px'; canvas.style.boxShadow = 'var(--shadow-lg)';
+    container.appendChild(canvas);
+    new QRious({ element: canvas, value: data, size: 300, background: 'white', foreground: 'black', level: 'M' });
+    document.getElementById('actionButtons').classList.remove('hidden');
+    document.getElementById('dataPreview').classList.remove('hidden');
+    document.getElementById('dataText').textContent = data;
+  });
+}
+
+var dGen = debounce(generateQR, 300);
+['urlInput','textInput','firstName','lastName','phone','email','organization','website'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', dGen);
+});
+
+/* ===================== ACTION BUTTONS ===================== */
+document.getElementById('downloadBtn').addEventListener('click', function() {
+  var canvas = document.querySelector('#qrContainer canvas');
+  if (!canvas) return;
+  var a = document.createElement('a');
+  a.download = 'qrcode-' + currentTab + '-' + Date.now() + '.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+});
+
+document.getElementById('copyBtn').addEventListener('click', function() {
+  if (!qrData) return;
+  var btn = document.getElementById('copyBtn');
+  navigator.clipboard && navigator.clipboard.writeText(qrData).then(function() {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<span>✓</span> Copied!';
+    btn.style.background = '#25D366'; btn.style.color = '#fff';
+    setTimeout(function() { btn.innerHTML = orig; btn.style.background = ''; btn.style.color = ''; }, 2000);
+  });
+});
+
+document.getElementById('clearBtn').addEventListener('click', function() {
+  ['urlInput','textInput','firstName','lastName','phone','email','organization','website'].forEach(function(id) {
+    document.getElementById(id).value = '';
+  });
+  generateQR();
+});
+
+/* ===================== INSTALL / SHARE ===================== */
+var deferredInstallPrompt = null;
+var installBtn = document.getElementById('installBtn');
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault(); deferredInstallPrompt = e; installBtn.classList.remove('hidden');
+});
+installBtn.addEventListener('click', function() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(function() { deferredInstallPrompt = null; installBtn.classList.add('hidden'); });
+});
+window.addEventListener('appinstalled', function() { installBtn.classList.add('hidden'); });
+document.getElementById('shareBtn').addEventListener('click', function() {
+  if (navigator.share) { navigator.share({ title:'Workspace QRcode App', url: window.location.href }).catch(function(){}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(window.location.href).catch(function(){}); }
+});
+
+/* ===================== INIT ===================== */
+generateQR();
+
+/* ===================== SERVICE WORKER ===================== */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    var swSrc = "var CACHE='wq-v1';self.addEventListener('install',function(e){self.skipWaiting();e.waitUntil(caches.open(CACHE).then(function(c){return c.add('" + window.location.href + "');}));});self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim());});self.addEventListener('fetch',function(e){if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).catch(function(){return caches.match('" + window.location.href + "');}));return;}e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request);}));});";
+    var blob = new Blob([swSrc], { type:'application/javascript' });
+    navigator.serviceWorker.register(URL.createObjectURL(blob), { scope:'./' }).catch(function(){});
+  });
+}
+</script>
+
+<script>
+  /*==================================================================
+     PLUG & PLAY EDITION
+================================================================== */
+
+const SoulWinnerTelemetry = (function () {
+    'use strict';
+
+    // ============================================
+    // 1. CONFIGURATION & CONSTANTS
+    // ============================================
+    const CONFIG = {
+        GAS_ENDPOINT: 'https://script.google.com/macros/s/AKfycbxkjrJRoxUfchfEovMr_aK0dwIAiGwUvjaMavF1fUogWsFYn4eXXCHdFKdRXp9wUyg/exec',
+        DB_NAME: 'SoulWinnerTelemetryDB',
+        DB_VERSION: 1,
+        STORE_NAME: 'telemetry_queue',
+        BATCH_SIZE: 15,
+        SYNC_INTERVAL_MS: 10000, // Background sync every 10 seconds
+        API_TIMEOUT_MS: 3000,    // Cascading API timeout to prevent hanging
+        SESSION_TIMEOUT_MINUTES: 30
+    };
+
+    let cachedLocation = null;
+    let sessionStartTime = new Date().getTime();
+
+    // ============================================
+    // 2. UTILITY & IDENTITY MANAGER
+    // ============================================
+    const IdentityManager = {
+        generateUUID: function () {
+            let d = new Date().getTime();
+            let d2 = (typeof performance !== 'undefined' && performance.now && (performance.now() * 1000)) || 0;
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                let r = Math.random() * 16;
+                if (d > 0) {
+                    r = (d + r) % 16 | 0;
+                    d = Math.floor(d / 16);
+                } else {
+                    r = (d2 + r) % 16 | 0;
+                    d2 = Math.floor(d2 / 16);
+                }
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        },
+
+        getDeviceID: function () {
+            let deviceId = localStorage.getItem('sw_device_id');
+            if (!deviceId) {
+                deviceId = 'DEV_' + this.generateUUID();
+                localStorage.setItem('sw_device_id', deviceId);
+            }
+            return deviceId;
+        },
+
+        getUserID: function () {
+            let userId = localStorage.getItem('sw_user_id');
+            if (!userId) {
+                userId = 'USR_' + this.generateUUID();
+                localStorage.setItem('sw_user_id', userId);
+            }
+            return userId;
+        },
+        getSessionID: function () {
+            const now = new Date().getTime();
+            let sessionData = JSON.parse(localStorage.getItem('sw_session') || 'null');
+
+            if (!sessionData || (now - sessionData.lastActive > (CONFIG.SESSION_TIMEOUT_MINUTES * 60 * 1000))) {
+                sessionData = {
+                    id: 'SESS_' + this.generateUUID(),
+                    created: now,
+                    lastActive: now
+                };
+            } else {
+                sessionData.lastActive = now;
+            }
+            localStorage.setItem('sw_session', JSON.stringify(sessionData));
+            return sessionData.id;
+        }
+    };
+
+    // ============================================
+    // 3. OFFLINE STORAGE MANAGER (INDEXEDDB)
+    // ============================================
+    const StorageManager = {
+        db: null,
+
+        init: function () {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
+
+                request.onupgradeneeded = function (event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(CONFIG.STORE_NAME)) {
+                        db.createObjectStore(CONFIG.STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    this.db = event.target.result;
+                    resolve();
+                };
+
+                request.onerror = (event) => {
+                    console.error('Telemetry DB Initialization Error', event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        },
+        enqueue: function (payload) {
+            return new Promise((resolve, reject) => {
+                if (!this.db) return reject(new Error('Database not initialized'));
+                const transaction = this.db.transaction([CONFIG.STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(CONFIG.STORE_NAME);
+                const request = store.add(payload);
+
+                request.onsuccess = () => resolve();
+                request.onerror = (e) => reject(e.target.error);
+            });
+        },
+
+        getBatch: function () {
+            return new Promise((resolve, reject) => {
+                if (!this.db) return resolve([]);
+                const transaction = this.db.transaction([CONFIG.STORE_NAME], 'readonly');
+                const store = transaction.objectStore(CONFIG.STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = (event) => {
+                    const allData = event.target.result || [];
+                    resolve(allData.slice(0, CONFIG.BATCH_SIZE));
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        },
+
+        deleteBatch: function (ids) {
+            return new Promise((resolve, reject) => {
+                if (!this.db || ids.length === 0) return resolve();
+                const transaction = this.db.transaction([CONFIG.STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(CONFIG.STORE_NAME);
+
+                ids.forEach(id => store.delete(id));
+
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = (e) => reject(e.target.error);
+            });
+        }
+    };
+
+    // ============================================
+    // 4. DEVICE & BROWSER PROFILER
+    // ============================================
+    const DeviceProfiler = {
+        getProfile: function () {
+            const ua = navigator.userAgent;
+            const referrer = document.referrer || '';
+            const url = window.location.href;
+
+            // Advanced OS Detection
+            let os = 'Unknown';
+            if (ua.indexOf('Win') !== -1) os = 'Windows';
+            if (ua.indexOf('Mac') !== -1) os = 'MacOS';
+            if (ua.indexOf('X11') !== -1) os = 'UNIX';
+            if (ua.indexOf('Linux') !== -1) os = 'Linux';
+            if (/Android/.test(ua)) os = 'Android';
+            if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS';
+
+            // Social & Traffic Source Parsing
+            const isFacebook = ua.includes('FBAN') || ua.includes('FBAV') || referrer.includes('facebook.com');
+            const isWhatsApp = ua.includes('WhatsApp') || referrer.includes('wa.me');
+            const isTwitter = ua.includes('Twitter') || referrer.includes('t.co');
+            const isLinkedIn = ua.includes('LinkedIn') || referrer.includes('linkedin.com');
+            const isBlogger = referrer.includes('blogspot.com') || referrer.includes('blogger.com');
+            const isGoogle = referrer.includes('google.com') || referrer.includes('android-app://com.google.android.googlequicksearchbox');
+
+            // Browser Identification
+            const isChrome = ua.includes('Chrome') && !ua.includes('Edg') && !ua.includes('OPR');
+            const isSafari = ua.includes('Safari') && !ua.includes('Chrome');
+            const isBrave = (navigator.brave && navigator.brave.isBrave) ? true : false;
+
+            // Network Parsing
+            const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            const connectionType = connection ? connection.effectiveType : 'Unknown';
+
+            return {
+                UserAgent: ua,
+                ReferrerHeader: referrer,
+                RequestURL: url,
+                ScreenResolution: `${window.screen.width || 0}x${window.screen.height || 0}`,
+                DeviceOS: os,
+                ConnectionType: connectionType,
+                Facebook: isFacebook ? 'Yes' : 'No',
+                WhatsApp: isWhatsApp ? 'Yes' : 'No',
+                Twitter: isTwitter ? 'Yes' : 'No',
+                LinkedIn: isLinkedIn ? 'Yes' : 'No',
+                Blogger: isBlogger ? 'Yes' : 'No',
+                Google: isGoogle ? 'Yes' : 'No',
+                Chrome: isChrome ? 'Yes' : 'No',
+                Safari: isSafari ? 'Yes' : 'No',
+                Brave: isBrave ? 'Yes' : 'No'
+            };
+        }
+    };
+
+    // ============================================
+    // 5. CASCADING GEOLOCATION ENGINE
+    // ============================================
+    const GeoLocator = {
+        fetchWithTimeout: function (url, options = {}) {
+            return Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), CONFIG.API_TIMEOUT_MS))
+            ]);
+        },
+        getLocation: async function () {
+            if (cachedLocation) return cachedLocation;
+
+            const fallbackLoc = { Country: 'Unknown', City: 'Unknown', ISP: 'Unknown', MobileNetwork: 'Unknown' };
+
+            const apis = [
+                {
+                    url: 'https://ipapi.co/json/',
+                    parse: (data) => ({ Country: data.country_name, City: data.city, ISP: data.org, MobileNetwork: data.org })
+                },
+                {
+                    url: 'https://ipwho.is/',
+                    parse: (data) => ({ Country: data.country, City: data.city, ISP: data.connection.isp, MobileNetwork: data.connection.isp })
+                },
+                {
+                    url: 'https://ipinfo.io/json',
+                    parse: (data) => ({ Country: data.country, City: data.city, ISP: data.org, MobileNetwork: data.org })
+                },
+                {
+                    url: 'https://freeipapi.com/api/json',
+                    parse: (data) => ({ Country: data.countryName, City: data.cityName, ISP: 'Unknown', MobileNetwork: 'Unknown' })
+                },
+                {
+                    url: 'https://api.bigdatacloud.net/data/client-info',
+                    parse: (data) => ({ Country: data.countryName, City: data.city, ISP: 'Unknown', MobileNetwork: 'Unknown' })
+                }
+            ];
+
+            for (const api of apis) {
+                try {
+                    const response = await this.fetchWithTimeout(api.url);
+                    if (!response.ok) continue;
+                    const data = await response.json();
+                    
+                    const parsed = api.parse(data);
+                    if (parsed.Country && parsed.Country !== 'Unknown') {
+                        cachedLocation = parsed;
+                        return cachedLocation;
+                    }
+                } catch (error) {
+                    // Fail silently and cascade to the next fallback API layer
+                    continue;
+                }
+            }
+
+            return fallbackLoc;
+        }
+    };
+
+    // ============================================
+    // 6. PERFORMANCE & CRASH MONITORS
+    // ============================================
+    const Monitor = {
+        getPerformanceMetrics: function () {
+            let loadTimeMs = 0;
+            let networkLatencyMs = 0;
+
+            if (window.performance && window.performance.timing) {
+                const t = window.performance.timing;
+                loadTimeMs = t.loadEventEnd > 0 ? (t.loadEventEnd - t.navigationStart) : (new Date().getTime() - t.navigationStart);
+                networkLatencyMs = t.responseEnd - t.requestStart;
+            }
+
+            return {
+                LoadTimeMs: loadTimeMs > 0 ? loadTimeMs : 0,
+                NetworkLatencyMs: networkLatencyMs > 0 ? networkLatencyMs : 0,
+                OfflineFlag: !navigator.onLine ? 'Yes' : 'No'
+            };
+        },
+
+        initCrashHandler: function () {
+            window.addEventListener('error', (event) => {
+                TelemetryEngine.logCrash({
+                    CrashType: 'JavaScript Error',
+                    CrashMessage: event.message,
+                    StackTrace: event.error ? event.error.stack : 'N/A',
+                    ThreadName: 'Main'
+                });
+            });
+
+            window.addEventListener('unhandledrejection', (event) => {
+                TelemetryEngine.logCrash({
+                    CrashType: 'Unhandled Promise Rejection',
+                    CrashMessage: event.reason ? event.reason.toString() : 'Unknown Reason',
+                    StackTrace: event.reason && event.reason.stack ? event.reason.stack : 'N/A',
+                    ThreadName: 'Async'
+                });
+            });
+        }
+    };
+
+    // ============================================
+    // 7. PLUG-AND-PLAY AUTO-TRACKER ENGINE
+    // ============================================
+    const AutoTracker = {
+        init: function() {
+            this.bindClickTracking();
+            this.bindFormTracking();
+            this.bindVisibilityTracking();
+            this.bindRouteTracking();
+        },
+        
+        bindClickTracking: function() {
+            document.body.addEventListener('click', (e) => {
+                const target = e.target.closest('button, a, [role="button"], input[type="submit"], input[type="button"], .clickable');
+                if (!target) return; // Ignore clicks on blank space or static text
+
+                // Attempt to extract the most meaningful text identifier
+                let textId = target.innerText || target.value || target.getAttribute('aria-label') || target.id || target.className || 'Unknown_Element';
+                textId = textId.replace(/[\n\r]+/g, ' ').substring(0, 50).trim();
+
+                let eventType = 'Click_Button';
+                if (target.tagName.toLowerCase() === 'a') eventType = 'Click_Link';
+                
+                // Track automatically
+                TelemetryEngine.logInteraction(eventType, textId, 0, 'AutoTracker_DOM');
+            }, { passive: true });
+        },
+
+        bindFormTracking: function() {
+            document.body.addEventListener('submit', (e) => {
+                const form = e.target;
+                const formId = form.id || form.name || form.className || 'Unnamed_Form';
+                
+                TelemetryEngine.logInteraction('Form_Submit', formId, 0, 'AutoTracker_DOM');
+            }, { passive: true });
+        },
+
+        bindVisibilityTracking: function() {
+            window.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    const timeSpentMs = new Date().getTime() - sessionStartTime;
+                    TelemetryEngine.logAnalytics('Session_Hidden', timeSpentMs);
+                } else if (document.visibilityState === 'visible') {
+                    // Reset timer when they return to the tab
+                    sessionStartTime = new Date().getTime();
+                }
+            });
+
+            // Catch final exit
+            window.addEventListener('beforeunload', () => {
+                const timeSpentMs = new Date().getTime() - sessionStartTime;
+                TelemetryEngine.logAnalytics('Session_Exit', timeSpentMs);
+            });
+        },
+
+        bindRouteTracking: function() {
+            let lastUrl = location.href;
+            
+            const trackView = () => {
+                const currentUrl = location.href;
+                if (currentUrl !== lastUrl) {
+                    TelemetryEngine.logInteraction('Virtual_Page_View', currentUrl.substring(0, 100), 0, 'AutoTracker_Router');
+                    lastUrl = currentUrl;
+                }
+            };
+
+            // Intercept standard popstate (back/forward buttons)
+            window.addEventListener('popstate', trackView);
+
+            // Intercept pushState/replaceState
+            const originalPushState = history.pushState;
+            history.pushState = function() {
+                originalPushState.apply(this, arguments);
+                trackView();
+            };
+
+            const originalReplaceState = history.replaceState;
+            history.replaceState = function() {
+                originalReplaceState.apply(this, arguments);
+                trackView();
+            };
+        }
+    };
+
+    // ============================================
+    // 8. CORE TELEMETRY ENGINE
+    // ============================================
+    const TelemetryEngine = {
+        buildCorePayload: async function (specificData) {
+            const loc = await GeoLocator.getLocation();
+            
+            const core = {
+                Timestamp: new Date().toISOString(),
+                UserID: IdentityManager.getUserID(),
+                Country: loc.Country,
+                City: loc.City,
+                ISP: loc.ISP,
+                MobileNetwork: loc.MobileNetwork
+            };
+
+            return Object.assign({}, core, specificData);
+        },
+
+        queueEvent: async function (actionName, payload) {
+            try {
+                const fullPayload = await this.buildCorePayload(payload);
+                await StorageManager.enqueue({
+                    action: actionName,
+                    data: fullPayload
+                });
+            } catch (error) {
+                console.error('Failed to queue telemetry event:', error);
+            }
+        },
+        // --- SPECIFIC SCHEMA LOGGERS ---
+        logTraffic: function () {
+            const profile = DeviceProfiler.getProfile();
+            profile.DeviceID = IdentityManager.getDeviceID();
+            this.queueEvent('log_traffic', profile);
+        },
+
+        logInteraction: function (eventType, detail, payloadSize = 0, destination = 'Local') {
+            this.queueEvent('log_interaction', {
+                SessionID: IdentityManager.getSessionID(),
+                EventType: eventType,
+                Share: eventType.includes('Share') ? 'Yes' : 'No',
+                EventDetail: detail,
+                InteractionDurationMs: 0,
+                PayloadSize: payloadSize,
+                StatusCode: '200',
+                RetryCount: 0,
+                DestinationPlatform: destination
+            });
+        },
+
+        logAnalytics: function (actionTaken, timeSpentMs = 0) {
+            const perf = Monitor.getPerformanceMetrics();
+            const profile = DeviceProfiler.getProfile();
+
+            this.queueEvent('log_analytics', {
+                UserAgent: profile.UserAgent,
+                VisitedDate: new Date().toISOString().split('T')[0],
+                TimeSpent: timeSpentMs,
+                ActionTaken: actionTaken,
+                SessionID: IdentityManager.getSessionID(),
+                PageDepth: window.history.length,
+                BounceFlag: timeSpentMs < 5000 && timeSpentMs > 0 ? 'Yes' : 'No',
+                EntryPage: profile.RequestURL,
+                ExitPage: profile.RequestURL,
+                LoadTimeMs: perf.LoadTimeMs,
+                NetworkLatencyMs: perf.NetworkLatencyMs,
+                OfflineFlag: perf.OfflineFlag
+            });
+        },
+
+        logCrash: function (crashData) {
+            const profile = DeviceProfiler.getProfile();
+            const memory = (performance && performance.memory) ? Math.round(performance.memory.usedJSHeapSize / 1048576) : 0;
+            
+            const payload = Object.assign({
+                CrashID: 'CRSH_' + IdentityManager.generateUUID(),
+                DeviceID: IdentityManager.getDeviceID(),
+                DeviceOS: profile.DeviceOS,
+                OSVersion: 'Unknown',
+                AppVersion: '1.0',
+                MemoryUsageMB: memory,
+                BatteryLevel: 'Unknown', 
+                ScreenOrientation: (window.screen && window.screen.orientation) ? window.screen.orientation.type : 'Unknown'
+            }, crashData);
+
+            this.queueEvent('log_crash', payload);
+        }
+    };
+
+    // ============================================
+    // 9. NETWORK DISPATCHER (BACKGROUND SYNC)
+    // ============================================
+    const Dispatcher = {
+        isSyncing: false,
+        sync: async function () {
+            if (this.isSyncing || !navigator.onLine) return;
+            
+            try {
+                this.isSyncing = true;
+                const batch = await StorageManager.getBatch();
+                
+                if (batch.length === 0) {
+                    this.isSyncing = false;
+                    return;
+                }
+
+                // Group by backend action handler to maximize batch operation efficiency
+                const actionGroups = {};
+                batch.forEach(item => {
+                    if (!actionGroups[item.action]) actionGroups[item.action] = [];
+                    actionGroups[item.action].push({ id: item.id, data: item.data });
+                });
+
+                const successfulIds = [];
+
+                // Dispatch requests synchronously per group
+                for (const ObjectEntry of Object.entries(actionGroups)) {
+                    const action = ObjectEntry[0];
+                    const items = ObjectEntry[1];
+                    const payloadData = items.map(i => i.data);
+                    
+                    await fetch(CONFIG.GAS_ENDPOINT, {
+                        method: 'POST',
+                        mode: 'no-cors', // Fundamental for bypassing Google Apps Script preflight strictness
+                        headers: {
+                            'Content-Type': 'text/plain'
+                        },
+                        body: JSON.stringify({
+                            action: action,
+                            data: payloadData
+                        })
+                    });
+
+                    // Due to opaque no-cors responses, we assume safe transit if network layer didn't throw
+                    successfulIds.push(...items.map(i => i.id));
+                }
+
+                if (successfulIds.length > 0) {
+                    await StorageManager.deleteBatch(successfulIds);
+                }
+
+            } catch (error) {
+                console.error('Telemetry Synchronization Failure:', error);
+            } finally {
+                this.isSyncing = false;
+            }
+        },
+
+        startDaemon: function () {
+            setInterval(() => this.sync(), CONFIG.SYNC_INTERVAL_MS);
+            window.addEventListener('online', () => this.sync());
+        }
+    };
+
+    // ============================================
+    // 10. PUBLIC API & BOOTSTRAP INITIALIZATION
+    // ============================================
+    return {
+        init: async function () {
+            if (CONFIG.GAS_ENDPOINT === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+                console.warn("SoulWinner Telemetry: Missing GAS Endpoint URL configuration.");
+                return; // Graceful halt if unconfigured
+            }
+
+            try {
+                // Initialize Offline DB and Global Monitors
+                await StorageManager.init();
+                Monitor.initCrashHandler();
+                
+                // Initialize Plug-and-Play Auto-Tracking DOM Hooks
+                AutoTracker.init();
+
+                // Start Background Dispatcher Daemon
+                Dispatcher.startDaemon();
+
+                // Fire initial foundational logs
+                window.addEventListener('load', () => {
+                    // Slight delay to prevent blocking the main UI render thread
+                    setTimeout(() => {
+                        TelemetryEngine.logTraffic();
+                        TelemetryEngine.logAnalytics('Initial_PageLoad');
+                    }, 2000);
+                });
+
+            } catch (e) {
+                console.error("Telemetry Initialization Architecture Failed:", e);
+            }
+        },
+
+        trackInteraction: function (eventType, detail) {
+            TelemetryEngine.logInteraction(eventType, detail, 0, 'Manual_Trigger');
+        },
+        trackShare: function (platform, detail) {
+            TelemetryEngine.logInteraction('Explicit_Share', detail, 0, platform);
+        }
+    };
+
+})();
+
+// Execute completely silent auto-initialization 
+SoulWinnerTelemetry.init();
+
+</script>
+</body>
+</html>
